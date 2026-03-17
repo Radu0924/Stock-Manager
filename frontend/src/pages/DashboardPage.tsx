@@ -145,7 +145,7 @@ export function DashboardPage({ onDataChange }: DashboardPageProps) {
     return () => {
       cancelled = true
     }
-  }, [selectedSizeId])
+  }, [selectedSizeId, onDataChange])
 
   const productOptions = useMemo(() => {
     return [

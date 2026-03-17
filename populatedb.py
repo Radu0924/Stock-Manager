@@ -120,8 +120,13 @@ size_ids = [row[0] for row in cursor.fetchall()]
 
 inventory_data = []
 
-quantities = list(range(0, 21))  # 0 to 20
-weights = [1, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]  # peak in the middle/high
+# Range 0-80 so some stores land above the optimal threshold (~45 units)
+# creating both surplus sources and deficit destinations for transfers.
+quantities = list(range(0, 81))
+weights = (
+    [1]*5 + [2]*5 + [3]*10 + [5]*10 + [8]*10 +  # 0-39:  moderate weight
+    [10]*10 + [8]*10 + [5]*10 + [3]*5 + [1]*6     # 40-80: declining weight
+)
 
 for store in store_ids:
     for size in size_ids:

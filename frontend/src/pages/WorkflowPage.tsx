@@ -96,20 +96,18 @@ export function WorkflowPage({ onDataChange, onStoreMapChange }: WorkflowPagePro
     setError('')
     fetchJson<Store[]>('/api/stores')
       .then((rows) => {
-        if (cancelled) return
-        setStores(rows)
-        const map = new Map<number, string>()
-        for (const s of rows) map.set(s.store_id, s.name)
-        onStoreMapChange?.(map)
+        if (!cancelled) {
+          setStores(rows)
+          const map = new Map<number, string>()
+          for (const s of rows) map.set(s.store_id, s.name)
+          onStoreMapChange?.(map)
+        }
       })
       .catch((e: unknown) => {
-        if (cancelled) return
-        setError(e instanceof Error ? e.message : 'Failed to load stores')
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load stores')
       })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    return () => { cancelled = true }
+  }, [onStoreMapChange])
 
   useEffect(() => {
     let cancelled = false

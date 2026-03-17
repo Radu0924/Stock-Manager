@@ -89,16 +89,12 @@ export function AlertsPage({ onDataChange }: AlertsPageProps) {
     setError('')
     fetchJson<Product[]>('/api/products')
       .then((rows) => {
-        if (cancelled) return
-        setProducts(rows)
+        if (!cancelled) setProducts(rows)
       })
       .catch((e: unknown) => {
-        if (cancelled) return
-        setError(e instanceof Error ? e.message : 'Failed to load products')
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load products')
       })
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [])
 
   useEffect(() => {

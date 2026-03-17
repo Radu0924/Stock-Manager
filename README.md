@@ -37,7 +37,7 @@ python populatedb.py    # populate with sample data (10 stores, 40+ products, 12
 
 ```bash
 pip install fastapi uvicorn pydantic-settings
-python -m uvicorn backend.api:app --reload   # http://localhost:8000
+python -m uvicorn backend.api:app --port 8002 --reload   # http://localhost:8002
 ```
 
 ### 3. Frontend
@@ -47,6 +47,8 @@ cd frontend
 npm install
 npm run dev   # http://localhost:5173 (proxied to API)
 ```
+
+**Note**: If you encounter port conflicts, the servers will automatically try different ports. The Vite config is set to proxy API calls to `localhost:8002` by default.
 
 ## API Endpoints
 

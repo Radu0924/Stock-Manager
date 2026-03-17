@@ -48,7 +48,7 @@ def get_db() -> Generator[sqlite3.Connection, None, None]:
             status_code=503,
             detail="Database not found. Run setupdb.py and populatedb.py first.",
         )
-    conn = sqlite3.connect(str(db_path))
+    conn = sqlite3.connect(str(db_path), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     try:
         yield conn

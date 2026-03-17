@@ -125,9 +125,10 @@ export function AlertsHistoryPage({ onDataChange }: AlertsHistoryPageProps) {
     setError('')
     fetchJson<AlertHistoryResponse>('/api/alerts/history')
       .then((resp) => {
-        if (cancelled) return
-        setAllRows(resp.rows)
-        onDataChange?.(resp.rows)
+        if (!cancelled) {
+          setAllRows(resp.rows)
+          onDataChange?.(resp.rows)
+        }
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load alerts history')
