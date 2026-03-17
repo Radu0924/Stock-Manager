@@ -28,6 +28,8 @@ const CITY_COORDS: Record<string, [number, number]> = {
   'Ploiesti': [44.9462, 26.0254],
   'Ploiești': [44.9462, 26.0254],
   'Oradea': [47.0465, 21.9189],
+  'Sibiu': [45.7983, 24.1256],
+  'Arad': [46.1866, 21.3123],
 }
 
 function getCoords(nameOrCity: string): [number, number] | null {
@@ -193,11 +195,14 @@ export function InteractiveMapPage({ onStoreDataChange }: { onStoreDataChange?: 
   // Fetch all data
   useEffect(() => {
     let cancelled = false
+    const safeJson = <T,>(path: string, fallback: T) =>
+      fetchJson<T>(path).catch(() => fallback)
+
     Promise.all([
-      fetchJson<Store[]>('/api/stores'),
-      fetchJson<DashboardStockResponse>('/api/dashboard/stock'),
-      fetchJson<StockoutResponse>('/api/alerts/stockout?days=120'),
-      fetchJson<WorkflowResponse>('/api/workflow/transfers/suggestions'),
+      safeJson<Store[]>('/api/stores', []),
+      safeJson<DashboardStockResponse>('/api/dashboard/stock', { rows: [] }),
+      safeJson<StockoutResponse>('/api/alerts/stockout?days=120', { threshold_DoS: 5, rows: [] }),
+      safeJson<WorkflowResponse>('/api/workflow/transfers/suggestions', { meta: {}, items: [] }),
     ])
       .then(([s, d, a, w]) => {
         if (cancelled) return
@@ -206,7 +211,6 @@ export function InteractiveMapPage({ onStoreDataChange }: { onStoreDataChange?: 
         setAlertData(a)
         setWorkflowData(w)
       })
-      .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [])

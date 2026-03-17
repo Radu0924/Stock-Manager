@@ -117,9 +117,10 @@ export type AlertHistoryRow = {
   trigger_subject: string
   store_id: number
   store_name: string
-  duration: string
-  action: string
-  result: 'Success' | 'Failure' | 'Pending'
+  duration: string | null
+  action_taken: string | null
+  result: 'Success' | 'Failure' | 'Pending' | null
+  resolved_at: string | null
 }
 
 export type AlertHistoryResponse = {

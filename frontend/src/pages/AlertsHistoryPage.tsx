@@ -6,44 +6,7 @@ import { RightPanelSection } from '../components/RightPanelSection'
 import { Select } from '../components/Select'
 import { Status } from '../components/Status'
 import { fetchJson } from '../lib/api'
-import type { AlertHistoryRow, AlertSeverity, Store } from '../lib/types'
-
-// ──────────────────────────────────────────
-// Mock data generator — REMOVE once backend
-// delivers GET /api/alerts/history
-// ──────────────────────────────────────────
-function generateMockAlerts(stores: Store[]): AlertHistoryRow[] {
-  if (stores.length === 0) return []
-
-  const alertTypes = ['Stockout Risk', 'Low Stock', 'Freight Spike', 'Order Frequency High', 'Storm delay']
-  const severities: AlertSeverity[] = ['Critical', 'High', 'Medium', 'Low']
-  const actions = ['View Details', 'Re-route', 'Redeploy', 'Notify', 'Escalate']
-  const results: AlertHistoryRow['result'][] = ['Success', 'Failure', 'Pending']
-  const durations = ['15m/Escalate', '30m/Ignore', '45m/Redeploy', '1h/Escalate', '2h/Notify']
-
-  const rows: AlertHistoryRow[] = []
-  const now = Date.now()
-  const sevenDays = 7 * 24 * 60 * 60 * 1000
-
-  for (let i = 0; i < 80; i++) {
-    const store = stores[i % stores.length]
-    const ts = new Date(now - Math.random() * sevenDays)
-    rows.push({
-      alert_id: i + 1,
-      timestamp: ts.toISOString(),
-      alert_type: alertTypes[i % alertTypes.length],
-      severity: severities[Math.floor(Math.random() * severities.length)],
-      trigger_subject: alertTypes[i % alertTypes.length] === 'Stockout Risk' ? `Inventory Level < 10` : alertTypes[i % alertTypes.length],
-      store_id: store.store_id,
-      store_name: store.name,
-      duration: durations[i % durations.length],
-      action: actions[i % actions.length],
-      result: results[Math.floor(Math.random() * 3)],
-    })
-  }
-  return rows.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-}
-// ──────────────────────────────────────────
+import type { AlertHistoryRow, AlertHistoryResponse, AlertSeverity, Store } from '../lib/types'
 
 const SEVERITY_COLORS: Record<AlertSeverity, string> = {
   Critical: '#ef4444',
@@ -155,16 +118,23 @@ export function AlertsHistoryPage({ onDataChange }: AlertsHistoryPageProps) {
     return () => { cancelled = true }
   }, [])
 
-  // Generate mock data when stores load
-  // TODO: Replace with fetchJson<AlertHistoryResponse>('/api/alerts/history') once backend is ready
+  // Load real alerts history data from backend
   useEffect(() => {
-    if (stores.length === 0) return
+    let cancelled = false
     setLoading(true)
-    const mockRows = generateMockAlerts(stores)
-    setAllRows(mockRows)
-    onDataChange?.(mockRows)
-    setLoading(false)
-  }, [stores, onDataChange])
+    setError('')
+    fetchJson<AlertHistoryResponse>('/api/alerts/history')
+      .then((resp) => {
+        if (cancelled) return
+        setAllRows(resp.rows)
+        onDataChange?.(resp.rows)
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load alerts history')
+      })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [onDataChange])
 
   // Filter options
   const severityOptions = useMemo(() => [
@@ -201,11 +171,6 @@ export function AlertsHistoryPage({ onDataChange }: AlertsHistoryPageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Mock data banner */}
-      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-400">
-        ⚠ This page uses mock data. Real data will appear once the backend delivers <code className="rounded bg-panel-bg px-1.5 py-0.5 text-xs">GET /api/alerts/history</code>.
-      </div>
-
       {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-4">
         <KpiCard label="Total Alerts (7D)" value={totalAlerts} accent="red" />
@@ -248,12 +213,12 @@ export function AlertsHistoryPage({ onDataChange }: AlertsHistoryPageProps) {
               </div>
               <div className="col-span-2 text-slate-300 truncate">{r.trigger_subject}</div>
               <div className="col-span-1 text-slate-300 truncate">{r.store_name}</div>
-              <div className="col-span-1 text-center text-xs text-slate-400">{r.duration}</div>
+              <div className="col-span-1 text-center text-xs text-slate-400">{r.duration ?? '—'}</div>
               <div className="col-span-1 text-center">
-                <span className="text-xs text-sky-400 cursor-pointer hover:underline">{r.action}</span>
+                <span className="text-xs text-sky-400 cursor-pointer hover:underline">{r.action_taken ?? '—'}</span>
               </div>
               <div className="col-span-1 flex justify-center">
-                <Badge label={r.result} tone={resultBadgeTone(r.result)} />
+                <Badge label={r.result ?? 'Pending'} tone={resultBadgeTone(r.result)} />
               </div>
             </div>
           ))}

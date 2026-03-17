@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Search, Shield, AlertTriangle, Info, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { Search, Shield, Info, CheckCircle, XCircle, Clock } from 'lucide-react'
 import { KpiCard } from '../components/KpiCard'
 import { RightPanelSection } from '../components/RightPanelSection'
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts'
@@ -120,12 +120,6 @@ export function AuditLogsPage({ onDataChange }: { onDataChange?: (rows: AuditLog
 
   return (
     <div className="space-y-6">
-      {/* Mock data warning */}
-      <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-300">
-        <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-        Showing mock audit data. Real logging will be available when the backend delivers <code className="mx-1 text-amber-200">GET /api/audit/logs</code>.
-      </div>
-
       {/* KPI cards */}
       <div className="grid grid-cols-4 gap-4">
         <KpiCard label="Total Events" value={String(stats.total)} accent="blue" />

@@ -1,6 +1,11 @@
-export type ApiError = {
-  message: string
+export class ApiError extends Error {
   status?: number
+
+  constructor(message: string, status?: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
 }
 
 export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -13,11 +18,7 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
 
   if (!response.ok) {
     const text = await response.text().catch(() => '')
-    const err: ApiError = {
-      message: text || `Request failed: ${response.status}`,
-      status: response.status,
-    }
-    throw err
+    throw new ApiError(text || `Request failed: ${response.status}`, response.status)
   }
 
   return (await response.json()) as T

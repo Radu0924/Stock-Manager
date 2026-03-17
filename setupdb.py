@@ -89,6 +89,24 @@ CREATE TABLE IF NOT EXISTS sales (
 );
 """)
 
+# -------------------------
+# Alerts History table
+# -------------------------
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS alerts_history (
+    alert_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    alert_type TEXT NOT NULL, -- e.g. 'Stockout Risk', 'Low Stock', 'Freight Spike'
+    severity TEXT NOT NULL CHECK(severity IN ('Critical', 'High', 'Medium', 'Low')),
+    trigger_subject TEXT NOT NULL,
+    store_id INTEGER NOT NULL REFERENCES stores(store_id),
+    duration TEXT,
+    action_taken TEXT,
+    result TEXT CHECK(result IN ('Success', 'Failure', 'Pending')),
+    resolved_at TIMESTAMP
+);
+""")
+
 conn.commit()
 conn.close()
 

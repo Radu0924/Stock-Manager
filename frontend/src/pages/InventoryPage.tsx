@@ -100,8 +100,8 @@ export function InventoryPage({ onSkuDataChange, onStoreDataChange }: InventoryP
   useEffect(() => {
     let cancelled = false
     fetchJson<Product[]>('/api/products')
-      .then((rows) => { if (!cancelled) setProducts(rows) })
-      .catch((e: unknown) => { if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load products') })
+      .then((rows) => { if (!cancelled) { setProducts(rows); setError('') } })
+      .catch(() => {})
     return () => { cancelled = true }
   }, [])
 
