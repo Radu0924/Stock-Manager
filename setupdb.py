@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS sales (
 """)
 
 # -------------------------
-# Alerts History table
+# Alerts table
 # -------------------------
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS alerts_history (
@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS alerts_history (
     resolved_at TIMESTAMP
 );
 """)
+
 
 conn.commit()
 conn.close()

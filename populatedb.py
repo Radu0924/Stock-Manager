@@ -120,9 +120,12 @@ size_ids = [row[0] for row in cursor.fetchall()]
 
 inventory_data = []
 
+quantities = list(range(0, 21))  # 0 to 20
+weights = [1, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]  # peak in the middle/high
+
 for store in store_ids:
     for size in size_ids:
-        quantity = random.randint(0, 20)
+        quantity = random.choices(quantities, weights=weights, k=1)[0]
         inventory_data.append((store, size, quantity))
 
 cursor.executemany(
@@ -191,145 +194,168 @@ cursor.executemany(
     sales_data
 )
 
-
-
-
-
+conn.commit()
 
 # -----------------------------
-# 6. Generate Alerts (LAST 7 DAYS)
+# 6. Generate CURRENT ALERTS 
 # -----------------------------
 alerts = []
+
+today = datetime.now().date()
+
+# --- CURRENT inventory snapshot
+cursor.execute("""
+SELECT store_id, size_id, quantity
+FROM inventory
+""")
+current_inventory = {(r[0], r[1]): r[2] for r in cursor.fetchall()}
+
+# --- SALES last 30 days
+cursor.execute("""
+SELECT store_id, size_id, SUM(quantity)
+FROM sales
+WHERE sale_date BETWEEN date(?) - 30 AND date(?)
+GROUP BY store_id, size_id
+""", (today, today))
+sales_map = {(r[0], r[1]): r[2] for r in cursor.fetchall()}
+
+# Hardcoded stockout thresholds
+stockout_critical = 2
+stockout_warning = 5
+stockout_low = 10
+
+for (store_id, size_id), quantity in current_inventory.items():
+    total_sales = sales_map.get((store_id, size_id), 0)
+    avg_daily_sales = total_sales / 30 if total_sales else 0
+    days_left = quantity / avg_daily_sales if avg_daily_sales else 999
+
+    # --- LOW STOCK
+    if quantity <= stockout_low:
+        severity = "High" if quantity <= stockout_warning else "Medium"
+        alerts.append((
+            datetime.now(),
+            "Low Stock",
+            severity,
+            f"SizeID {size_id} low stock ({quantity})",
+            store_id,
+            "Ongoing",
+            "Restock Requested",  # pending action
+            "Pending",
+            None
+        ))
+
+    # --- STOCKOUT RISK
+    if avg_daily_sales > 0 and days_left < stockout_low:
+        if days_left < stockout_critical:
+            severity = "Critical"
+        elif days_left < stockout_warning:
+            severity = "High"
+        else:
+            severity = "Medium"
+
+        alerts.append((
+            datetime.now(),
+            "Stockout Risk",
+            severity,
+            f"SizeID {size_id} risk: {days_left:.1f} days left",
+            store_id,
+            "Short-term",
+            "Expedite Reorder",
+            "Pending",
+            None
+        ))
+
+# --- Insert current alerts (commented out)
+# if alerts:
+#     cursor.executemany("""
+#     INSERT INTO alerts_history (
+#         timestamp,
+#         alert_type,
+#         severity,
+#         trigger_subject,
+#         store_id,
+#         duration,
+#         action_taken,
+#         result,
+#         resolved_at
+#     )
+#     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+#     """, alerts)
+#     conn.commit()
+#
+# print(f"{len(alerts)} current alerts generated.")
+
+# -----------------------------
+# Generate RESOLVED alerts for past 7 days
+# -----------------------------
+resolved_alerts = []
 
 end_date = datetime.now()
 start_date = end_date - timedelta(days=7)
 
-current_day = start_date
+for day_offset in range(7):
+    alert_day = start_date + timedelta(days=day_offset)
 
-while current_day <= end_date:
-
-    # --- Inventory snapshot (same as current, or you can simulate changes)
-    cursor.execute("""
-    SELECT store_id, size_id, quantity
-    FROM inventory
-    """)
-    inventory_rows = cursor.fetchall()
-
-    inventory_map = {(r[0], r[1]): r[2] for r in inventory_rows}
-
-    # --- SALES in last 30 days from THAT DAY
-    cursor.execute("""
-    SELECT store_id, size_id, SUM(quantity)
-    FROM sales
-    WHERE sale_date BETWEEN date(?) - 30 AND date(?)
-    GROUP BY store_id, size_id
-    """, (current_day.date(), current_day.date()))
-
-    sales_30d = cursor.fetchall()
-
-    sales_map = {(r[0], r[1]): r[2] for r in sales_30d}
-
-    # --- SALES spike calc
-    cursor.execute("""
-    SELECT store_id, size_id,
-    SUM(CASE WHEN sale_date BETWEEN date(?) - 7 AND date(?) THEN quantity ELSE 0 END),
-    SUM(CASE WHEN sale_date BETWEEN date(?) - 37 AND date(?) - 8 THEN quantity ELSE 0 END)
-    FROM sales
-    GROUP BY store_id, size_id
-    """, (current_day.date(), current_day.date(),
-          current_day.date(), current_day.date()))
-
-    spike_data = cursor.fetchall()
-
-    # -----------------------------
-    # 1. LOW STOCK
-    # -----------------------------
-    for store_id, size_id, quantity in inventory_rows:
-        if quantity <= 2:
-            alerts.append((
-                current_day,
+    for store_id, size_id in current_inventory.keys():
+        # Random resolved LOW STOCK
+        if random.random() < 0.2:  # 20% chance
+            quantity = random.randint(0, stockout_low)
+            severity = "High" if quantity <= stockout_warning else "Medium"
+            resolved_at = alert_day + timedelta(hours=random.randint(6, 48))
+            resolved_alerts.append((
+                alert_day + timedelta(hours=random.randint(0, 23)),
                 "Low Stock",
-                "High" if quantity < 1 else "Medium",
+                severity,
                 f"SizeID {size_id} low stock ({quantity})",
                 store_id,
                 "Ongoing",
-                "Restock Requested",
-                "Pending",
-                None
+                "Restock Completed",
+                "Success",
+                resolved_at
             ))
 
-    # -----------------------------
-    # 2. STOCKOUT RISK
-    # -----------------------------
-    for (store_id, size_id), total_sales in sales_map.items():
+        # Random resolved STOCKOUT RISK
+        if random.random() < 0.15:  # 15% chance
+            days_left = random.uniform(0.5, stockout_low - 0.1)
+            if days_left < stockout_critical:
+                severity = "Critical"
+            elif days_left < stockout_warning:
+                severity = "High"
+            else:
+                severity = "Medium"
 
-        avg_daily_sales = total_sales / 30 if total_sales else 0
-        stock = inventory_map.get((store_id, size_id), 0)
+            resolved_at = alert_day + timedelta(hours=random.randint(6, 72))
+            resolved_alerts.append((
+                alert_day + timedelta(hours=random.randint(0, 23)),
+                "Stockout Risk",
+                severity,
+                f"SizeID {size_id} risk: {days_left:.1f} days left",
+                store_id,
+                "Short-term",
+                "Expedite Reorder Completed",
+                "Success",
+                resolved_at
+            ))
 
-        if avg_daily_sales > 0:
-            days_left = stock / avg_daily_sales
-
-            if days_left < 3:
-                alerts.append((
-                    current_day,
-                    "Stockout Risk",
-                    "Critical" if days_left < 1 else "High",
-                    f"SizeID {size_id} risk: {days_left:.1f} days left",
-                    store_id,
-                    "Short-term",
-                    "Expedite Reorder",
-                    "Pending",
-                    None
-                ))
-
-    # -----------------------------
-    # 3. DEMAND SPIKE
-    # -----------------------------
-    for store_id, size_id, last_7, prev_30 in spike_data:
-
-        if prev_30 > 0:
-            avg_prev = prev_30 / 30
-            avg_recent = last_7 / 7
-
-            if avg_recent > avg_prev * 1.5:
-                alerts.append((
-                    current_day,
-                    "Freight Spike",
-                    "Medium",
-                    f"SizeID {size_id} demand spike",
-                    store_id,
-                    "Short-term",
-                    "Monitor",
-                    "Pending",
-                    None
-                ))
-
-    current_day += timedelta(days=1)
-
-# -----------------------------
-# Insert alerts
-# -----------------------------
-cursor.executemany("""
-INSERT INTO alerts_history (
-    timestamp,
-    alert_type,
-    severity,
-    trigger_subject,
-    store_id,
-    duration,
-    action_taken,
-    result,
-    resolved_at
-)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-""", alerts)
-
-conn.commit()
-
-print(f"{len(alerts)} alerts generated over last 7 days.")
+# --- Insert resolved alerts
+if resolved_alerts:
+    cursor.executemany("""
+    INSERT INTO alerts_history (
+        timestamp,
+        alert_type,
+        severity,
+        trigger_subject,
+        store_id,
+        duration,
+        action_taken,
+        result,
+        resolved_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, resolved_alerts)
+    conn.commit()
 
 
-conn.commit()
 conn.close()
 
 print("Database populated successfully.")
